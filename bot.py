@@ -11,13 +11,7 @@ initial_outreach_phrases = ["hello", "hi"]
 secondary_outreach_phrases = ["I said HI!", "excuse me, hello?", "hellllloooooo!"]
 outreach_reply_phrases = ["hello back at you!", "hi"]
 inquiry_phrases = ["how are you?", "what's happening?", "how is it going?", "how are you doing?"]
-inquiry_reply_phrases = [
-    "I'm good",
-    "I'm fine",
-    "I'm fine, thanks for asking",
-    "I'm great!",
-    "Great!",
-]
+inquiry_reply_phrases = ["I'm good", "I'm fine", "I'm fine, thanks for asking", "I'm great!", "Great!"]
 inquiry_back_phrases = ["how about you?", "and yourself?", "how about yourself?"]
 giveup_phrases = ["Ok, forget you.", "Whatever.", "screw you!", "whatever, fine. Don't answer."]
 
