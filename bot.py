@@ -6,6 +6,7 @@ import threading
 import random
 import json
 import os
+from pathlib import Path
 
 initial_outreach_phrases = ["hello", "hi"]
 secondary_outreach_phrases = ["I said HI!", "excuse me, hello?", "hellllloooooo!"]
@@ -14,6 +15,11 @@ inquiry_phrases = ["how are you?", "what's happening?", "how is it going?", "how
 inquiry_reply_phrases = ["I'm good", "I'm fine", "I'm fine, thanks for asking", "I'm great!", "Great!"]
 inquiry_back_phrases = ["how about you?", "and yourself?", "how about yourself?"]
 giveup_phrases = ["Ok, forget you.", "Whatever.", "screw you!", "whatever, fine. Don't answer."]
+LABEL_MAP = {
+    0: "non-self-intro",
+    1: "self-intro",
+}
+MAX_CHUNK_TOKENS = 510
 
 class ChatBot(irc.bot.SingleServerIRCBot):
     def __init__(self, channel, nickname, server, port=6667):
@@ -35,6 +41,11 @@ class ChatBot(irc.bot.SingleServerIRCBot):
         self.inquiry_inputs = {self.normalize_text(p) for p in (inquiry_phrases + inquiry_back_phrases)}
         self.inquiry_reply_inputs = {self.normalize_text(p) for p in inquiry_reply_phrases}
         self.giveup_inputs = {self.normalize_text(p) for p in giveup_phrases}
+        self.all_greeting_inputs = (
+            self.outreach_inputs | self.inquiry_inputs | self.inquiry_reply_inputs | self.giveup_inputs
+        )
+        self.model_dir = self.resolve_model_dir()
+        self.classifier = None
         self.load_state()
 
     def on_nicknameinuse(self, c, e):
@@ -57,9 +68,12 @@ class ChatBot(irc.bot.SingleServerIRCBot):
             text = msg[len(prefix):].strip()
             command = text.lower()
             if self.is_command(command):
-                self.do_command(e, command, c)
+                self.do_command(e, text, c)
             else:
-                self.handle_greeting_message(sender, text)
+                if self.normalize_text(text) in self.all_greeting_inputs:
+                    self.handle_greeting_message(sender, text)
+                else:
+                    self.handle_classifier_message(sender, text)
 
     def send_delayed_msg(self, target, msg, delay=2):
         def delayed_send():
@@ -70,7 +84,100 @@ class ChatBot(irc.bot.SingleServerIRCBot):
         threading.Thread(target=delayed_send, daemon=True).start()
 
     def is_command(self, cmd):
-        return cmd in {"die", "forget", "who are you?", "usage", "users"}
+        return (
+            cmd in {"die", "forget", "who are you?", "usage", "users", "classify"}
+            or cmd.startswith("classify ")
+        )
+
+    def resolve_model_dir(self):
+        bot_root = Path(__file__).resolve().parent
+        return bot_root / "milestone3_bert_self_intro"
+
+    def load_bert_classifier(self, model_dir):
+        try:
+            import torch
+            from transformers import AutoTokenizer, AutoModelForSequenceClassification
+        except ModuleNotFoundError as ex:
+            print(f"BERT classifier unavailable (missing dependency): {ex}")
+            return None
+
+        if not model_dir.exists():
+            print(f"BERT classifier unavailable (model directory not found): {model_dir}")
+            return None
+
+        try:
+            tokenizer = AutoTokenizer.from_pretrained(model_dir)
+            model = AutoModelForSequenceClassification.from_pretrained(model_dir)
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            model.to(device)
+            model.eval()
+            print(f"Loaded BERT classifier from {model_dir}")
+            return {
+                "torch": torch,
+                "tokenizer": tokenizer,
+                "model": model,
+                "device": device,
+            }
+        except Exception as ex:
+            print(f"Failed to load BERT classifier from {model_dir}: {ex}")
+            return None
+
+    def predict_chunk(self, chunk_text):
+        bundle = self.classifier
+        torch = bundle["torch"]
+        tokenizer = bundle["tokenizer"]
+        model = bundle["model"]
+        device = bundle["device"]
+
+        inputs = tokenizer(chunk_text, truncation=True, padding=True, return_tensors="pt")
+        inputs = {k: v.to(device) for k, v in inputs.items()}
+
+        with torch.no_grad():
+            outputs = model(**inputs)
+            probs = torch.softmax(outputs.logits, dim=1).squeeze(0)
+
+        pred_id = int(torch.argmax(probs).item())
+        conf = float(probs[pred_id].item())
+        return pred_id, conf
+
+    def chunk_text(self, text):
+        tokenizer = self.classifier["tokenizer"]
+        token_ids = tokenizer.encode(text, add_special_tokens=False)
+        if not token_ids:
+            return [text]
+
+        chunks = []
+        for i in range(0, len(token_ids), MAX_CHUNK_TOKENS):
+            chunk_ids = token_ids[i : i + MAX_CHUNK_TOKENS]
+            chunks.append(tokenizer.decode(chunk_ids, skip_special_tokens=True))
+        return chunks
+
+    def classify_text(self, text):
+        if self.classifier is None:
+            self.classifier = self.load_bert_classifier(self.model_dir)
+        if not self.classifier:
+            return None, None
+
+        chunks = self.chunk_text(text)
+        chunk_preds = [self.predict_chunk(c) for c in chunks]
+
+        if any(pred_id == 1 for pred_id, _ in chunk_preds):
+            conf = max(conf for pred_id, conf in chunk_preds if pred_id == 1)
+            return LABEL_MAP[1], conf
+
+        conf = max(conf for _, conf in chunk_preds) if chunk_preds else 0.0
+        return LABEL_MAP[0], conf
+
+    def handle_classifier_message(self, sender, text):
+        label, conf = self.classify_text(text)
+        if label is None:
+            self.send_to_user(
+                sender,
+                f"Classifier unavailable. Expected model directory: {self.model_dir}",
+                delay=1,
+            )
+            return
+        self.send_to_user(sender, f"Prediction: {label} (confidence={conf:.4f})", delay=1)
 
     def load_state(self):
         if not os.path.exists(self.state_file):
@@ -287,14 +394,15 @@ class ChatBot(irc.bot.SingleServerIRCBot):
     def do_command(self, e, cmd, c):
         sender = e.source.nick
         target = self.channel_name
+        normalized = cmd.strip().lower()
 
-        if cmd == "die":
+        if normalized == "die":
             self.send_delayed_msg(target, f"{sender}: I shall!")
             time.sleep(3) 
             c.quit("Quit: chat-bot")
             sys.exit(0)
 
-        elif cmd == "forget":
+        elif normalized == "forget":
             self.send_delayed_msg(target, f"{sender}: forgetting everything")
             with self.lock:
                 self.cancel_timeout_timer()
@@ -304,19 +412,40 @@ class ChatBot(irc.bot.SingleServerIRCBot):
                 self.clear_saved_state()
                 self.schedule_initial_outreach()
             
-        elif cmd in ["who are you?", "usage"]:
+        elif normalized in ["who are you?", "usage"]:
             msg1 = f"My name is {c.get_nickname()}. I was created by {self.creator_info}"
-            msg2 = 'I can answer questions about the weather! Ask me a question like this: "What is the weather in Paris?"'
+            msg2 = 'Use "classify <text>" or address me with any message to run legislative self-intro BERT classifier.'
             self.send_delayed_msg(target, f"{sender}: {msg1}")
             self.send_delayed_msg(target, f"{sender}: {msg2}")
 
-        elif cmd == "users":
+        elif normalized == "users":
             channel_obj = self.channels.get(self.channel_name)
             if channel_obj:
                 users_list = ", ".join(channel_obj.users())
                 self.send_delayed_msg(target, f"{sender}: {users_list}")
             else:
                 self.send_delayed_msg(target, f"{sender}: I am not in the channel.")
+
+        elif normalized == "classify" or normalized.startswith("classify "):
+            text = cmd[len("classify"):].strip() if normalized.startswith("classify") else ""
+            if not text:
+                self.send_delayed_msg(
+                    target,
+                    f'{sender}: Usage: "{c.get_nickname()}: classify <text>"',
+                )
+                return
+            label, conf = self.classify_text(text)
+            if label is None:
+                self.send_delayed_msg(
+                    target,
+                    f"{sender}: Classifier unavailable. Expected model directory: {self.model_dir}",
+                )
+                return
+            self.send_delayed_msg(
+                target,
+                f"{sender}: Prediction: {label} (confidence={conf:.4f})",
+                delay=1,
+            )
 
 
 if __name__ == "__main__":
