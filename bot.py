@@ -34,16 +34,6 @@ class ChatBot(irc.bot.SingleServerIRCBot):
             "state": "START",
             "partner": None,
         }
-        self.outreach_inputs = {
-            self.normalize_text(p)
-            for p in (initial_outreach_phrases + secondary_outreach_phrases + outreach_reply_phrases)
-        }
-        self.inquiry_inputs = {self.normalize_text(p) for p in (inquiry_phrases + inquiry_back_phrases)}
-        self.inquiry_reply_inputs = {self.normalize_text(p) for p in inquiry_reply_phrases}
-        self.giveup_inputs = {self.normalize_text(p) for p in giveup_phrases}
-        self.all_greeting_inputs = (
-            self.outreach_inputs | self.inquiry_inputs | self.inquiry_reply_inputs | self.giveup_inputs
-        )
         self.model_dir = self.resolve_model_dir()
         self.classifier = None
         self.load_state()
@@ -70,10 +60,7 @@ class ChatBot(irc.bot.SingleServerIRCBot):
             if self.is_command(command):
                 self.do_command(e, text, c)
             else:
-                if self.normalize_text(text) in self.all_greeting_inputs:
-                    self.handle_greeting_message(sender, text)
-                else:
-                    self.handle_classifier_message(sender, text)
+                self.handle_greeting_message(sender, text)
 
     def send_delayed_msg(self, target, msg, delay=2):
         def delayed_send():
@@ -295,22 +282,6 @@ class ChatBot(irc.bot.SingleServerIRCBot):
                 self.reset_conversation(persist=True)
                 self.schedule_initial_outreach()
 
-    def contains_outreach(self, text):
-        t = self.normalize_text(text)
-        return t in self.outreach_inputs
-
-    def contains_inquiry(self, text):
-        t = self.normalize_text(text)
-        return t in self.inquiry_inputs
-
-    def contains_inquiry_reply(self, text):
-        t = self.normalize_text(text)
-        return t in self.inquiry_reply_inputs
-
-    def contains_giveup(self, text):
-        t = self.normalize_text(text)
-        return t in self.giveup_inputs
-
     def normalize_text(self, text):
         return text.strip().lower()
 
@@ -319,77 +290,55 @@ class ChatBot(irc.bot.SingleServerIRCBot):
             state = self.greeting["state"]
             partner = self.greeting["partner"]
 
-            if self.contains_giveup(text):
-                if state != "START" and partner == sender:
-                    self.transition("END", partner=partner)
-                    self.reset_conversation(persist=True)
-                    self.schedule_initial_outreach()
-                return
-
             if state == "START":
-                if self.contains_outreach(text):
-                    self.transition("2_OUTREACH_REPLY", partner=sender)
-                    self.send_to_user(sender, random.choice(outreach_reply_phrases))
-                    self.schedule_timeout()
+                self.transition("2_OUTREACH_REPLY", partner=sender)
+                self.send_to_user(sender, random.choice(outreach_reply_phrases))
+                self.schedule_timeout()
                 return
 
             if partner != sender:
                 return
 
             if state in {"1_INITIAL_OUTREACH", "1_SECONDARY_OUTREACH"}:
-                if self.contains_outreach(text):
-                    self.cancel_timeout_timer()
-                    self.transition("2_OUTREACH_REPLY", partner=partner)
-                    self.transition("1_INQUIRY", partner=partner)
-                    self.send_to_user(partner, random.choice(inquiry_phrases))
-                    self.schedule_timeout()
+                self.cancel_timeout_timer()
+                self.transition("2_OUTREACH_REPLY", partner=partner)
+                self.transition("1_INQUIRY", partner=partner)
+                self.send_to_user(partner, random.choice(inquiry_phrases))
+                self.schedule_timeout()
                 return
 
             if state == "1_INQUIRY":
-                if self.contains_inquiry_reply(text) and self.contains_inquiry(text):
-                    self.cancel_timeout_timer()
-                    self.transition("2_INQUIRY_REPLY", partner=partner)
-                    self.transition("2_INQUIRY", partner=partner)
-                    self.transition("1_INQUIRY_REPLY", partner=partner)
-                    self.send_to_user(partner, random.choice(inquiry_reply_phrases))
-                    self.transition("END", partner=partner)
-                    self.reset_conversation(persist=True)
-                    self.schedule_initial_outreach()
-                elif self.contains_inquiry_reply(text):
-                    self.cancel_timeout_timer()
-                    self.transition("2_INQUIRY_REPLY", partner=partner)
-                    self.schedule_timeout()
+                self.cancel_timeout_timer()
+                self.transition("2_INQUIRY_REPLY", partner=partner)
+                self.schedule_timeout()
                 return
 
             if state == "2_OUTREACH_REPLY":
-                if self.contains_inquiry(text):
-                    self.cancel_timeout_timer()
-                    self.transition("1_INQUIRY", partner=partner)
-                    self.transition("2_INQUIRY_REPLY", partner=partner)
-                    self.send_to_user(partner, random.choice(inquiry_reply_phrases), delay=2)
-                    self.transition("2_INQUIRY", partner=partner)
-                    self.send_to_user(partner, random.choice(inquiry_back_phrases), delay=3)
-                    self.schedule_timeout()
+                self.cancel_timeout_timer()
+                self.transition("1_INQUIRY", partner=partner)
+                self.transition("2_INQUIRY_REPLY", partner=partner)
+                self.send_to_user(partner, random.choice(inquiry_reply_phrases), delay=2)
+                self.transition("2_INQUIRY", partner=partner)
+                self.send_to_user(partner, random.choice(inquiry_back_phrases), delay=3)
+                self.schedule_timeout()
                 return
 
             if state == "2_INQUIRY":
-                if self.contains_inquiry_reply(text):
-                    self.cancel_timeout_timer()
-                    self.transition("1_INQUIRY_REPLY", partner=partner)
-                    self.transition("END", partner=partner)
-                    self.reset_conversation(persist=True)
-                    self.schedule_initial_outreach()
+                self.cancel_timeout_timer()
+                self.transition("1_INQUIRY_REPLY", partner=partner)
+                self.transition("END", partner=partner)
+                self.reset_conversation(persist=True)
+                self.schedule_initial_outreach()
                 return
 
             if state == "2_INQUIRY_REPLY":
-                if self.contains_inquiry(text):
-                    self.cancel_timeout_timer()
-                    self.transition("2_INQUIRY", partner=partner)
-                    self.transition("1_INQUIRY_REPLY", partner=partner)
-                    self.send_to_user(partner, random.choice(inquiry_reply_phrases))
-                    self.transition("END", partner=partner)
-                    self.reset_conversation(persist=True)
-                    self.schedule_initial_outreach()
+                self.cancel_timeout_timer()
+                self.transition("2_INQUIRY", partner=partner)
+                self.transition("1_INQUIRY_REPLY", partner=partner)
+                self.send_to_user(partner, random.choice(inquiry_reply_phrases))
+                self.transition("END", partner=partner)
+                self.reset_conversation(persist=True)
+                self.schedule_initial_outreach()
 
     def do_command(self, e, cmd, c):
         sender = e.source.nick
@@ -451,7 +400,7 @@ class ChatBot(irc.bot.SingleServerIRCBot):
 if __name__ == "__main__":
     SERVER = "irc.libera.chat"
     PORT = 6667
-    CHANNEL = "#CSC482"
+    CHANNEL = "#CSC481"
     BOTNICK = "dasliu-bot"
     
     print(f"Starting {BOTNICK} on {SERVER}:{PORT} in {CHANNEL}...")
