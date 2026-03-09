@@ -3,7 +3,6 @@ Lab 5: IRC Chatbot
 
 Files expected in this folder:
 - bot.py
-- bot_state.json
 - milestone3_bert_self_intro/ (contains model.safetensors + tokenizer/config files)
 
 Setup

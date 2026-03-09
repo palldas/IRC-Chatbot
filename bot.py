@@ -4,8 +4,6 @@ import time
 import sys
 import threading
 import random
-import json
-import os
 from pathlib import Path
 
 initial_outreach_phrases = ["hello", "hi"]
@@ -26,7 +24,6 @@ class ChatBot(irc.bot.SingleServerIRCBot):
         super().__init__([(server, port)], nickname, nickname)
         self.channel_name = channel
         self.creator_info = "Pallavi Das and Kasey Liu, CSC 482"
-        self.state_file = "bot_state.json"
         self.lock = threading.RLock()
         self.timeout_timer = None
         self.initial_outreach_timer = None
@@ -36,7 +33,6 @@ class ChatBot(irc.bot.SingleServerIRCBot):
         }
         self.model_dir = self.resolve_model_dir()
         self.classifier = None
-        self.load_state()
 
     def on_nicknameinuse(self, c, e):
         c.nick(c.get_nickname() + "_")
@@ -44,7 +40,7 @@ class ChatBot(irc.bot.SingleServerIRCBot):
     def on_welcome(self, c, e):
         c.join(self.channel_name)
         print(f"[{c.get_nickname()}] Connected and joined {self.channel_name}")
-        self.reset_conversation(persist=True)
+        self.reset_conversation()
         self.schedule_initial_outreach()
 
     def on_pubmsg(self, c, e):
@@ -166,41 +162,16 @@ class ChatBot(irc.bot.SingleServerIRCBot):
             return
         self.send_to_user(sender, f"Prediction: {label} (confidence={conf:.4f})", delay=1)
 
-    def load_state(self):
-        if not os.path.exists(self.state_file):
-            return
-        try:
-            with open(self.state_file, "r", encoding="utf-8") as f:
-                saved = json.load(f)
-            if isinstance(saved, dict) and "state" in saved:
-                self.greeting["state"] = saved.get("state", "START")
-                self.greeting["partner"] = saved.get("partner")
-                print(f"Loaded saved state: {self.greeting}")
-        except Exception as ex:
-            print(f"Failed to load state file: {ex}")
-
-    def save_state(self):
-        with open(self.state_file, "w", encoding="utf-8") as f:
-            json.dump(self.greeting, f)
-
-    def clear_saved_state(self):
-        if os.path.exists(self.state_file):
-            os.remove(self.state_file)
-
-    def transition(self, new_state, partner=None, persist=True):
+    def transition(self, new_state, partner=None):
         with self.lock:
             self.greeting["state"] = new_state
             if partner is not None:
                 self.greeting["partner"] = partner
-            if persist:
-                self.save_state()
 
-    def reset_conversation(self, persist=True):
+    def reset_conversation(self):
         with self.lock:
             self.cancel_timeout_timer()
             self.greeting = {"state": "START", "partner": None}
-            if persist:
-                self.save_state()
 
     def cancel_timeout_timer(self):
         if self.timeout_timer and self.timeout_timer.is_alive():
@@ -255,7 +226,7 @@ class ChatBot(irc.bot.SingleServerIRCBot):
             self.send_to_user(partner, phrase)
         self.transition(speaker_prefix, partner=partner)
         self.transition("END", partner=partner)
-        self.reset_conversation(persist=True)
+        self.reset_conversation()
         self.schedule_initial_outreach()
 
     def handle_timeout(self):
@@ -279,7 +250,7 @@ class ChatBot(irc.bot.SingleServerIRCBot):
                 self.do_giveup("2_GIVEUP_FRUSTRATED")
             elif state == "2_INQUIRY_REPLY":
                 self.transition("END", partner=partner)
-                self.reset_conversation(persist=True)
+                self.reset_conversation()
                 self.schedule_initial_outreach()
 
     def normalize_text(self, text):
@@ -327,7 +298,7 @@ class ChatBot(irc.bot.SingleServerIRCBot):
                 self.cancel_timeout_timer()
                 self.transition("1_INQUIRY_REPLY", partner=partner)
                 self.transition("END", partner=partner)
-                self.reset_conversation(persist=True)
+                self.reset_conversation()
                 self.schedule_initial_outreach()
                 return
 
@@ -337,7 +308,7 @@ class ChatBot(irc.bot.SingleServerIRCBot):
                 self.transition("1_INQUIRY_REPLY", partner=partner)
                 self.send_to_user(partner, random.choice(inquiry_reply_phrases))
                 self.transition("END", partner=partner)
-                self.reset_conversation(persist=True)
+                self.reset_conversation()
                 self.schedule_initial_outreach()
 
     def do_command(self, e, cmd, c):
@@ -357,7 +328,7 @@ class ChatBot(irc.bot.SingleServerIRCBot):
                 self.cancel_timeout_timer()
                 if self.initial_outreach_timer and self.initial_outreach_timer.is_alive():
                     self.initial_outreach_timer.cancel()
-                self.reset_conversation(persist=False)
+                self.reset_conversation()
                 self.clear_saved_state()
                 self.schedule_initial_outreach()
             
