@@ -1,0 +1,38 @@
+Sample Chat Transcripts
+
+Phase II: 
+
+[12:21:10 PM] <dasliu-bot> kasey: hi
+[12:21:17 PM] <kasey> dasliu-bot: hello
+[12:21:19 PM] <dasliu-bot> kasey: how are you?
+[12:21:24 PM] <kasey> dasliu-bot: I'm good
+[12:21:28 PM] <kasey> dasliu-bot: how about you?
+[12:21:31 PM] <dasliu-bot> kasey: I'm fine, thanks for asking
+
+[12:21:41 PM] <kasey> dasliu-bot: hello
+[12:21:44 PM] <dasliu-bot> kasey: hello back at you!
+[12:21:57 PM] <kasey> dasliu-bot: how are you?
+[12:21:59 PM] <dasliu-bot> kasey: I'm fine, thanks for asking
+[12:22:00 PM] <dasliu-bot> kasey: how about you?
+[12:22:12 PM] <kasey> dasliu-bot: I'm good
+
+[12:22:29 PM] <dasliu-bot> Guest1: hi
+[12:22:49 PM] <dasliu-bot> Guest1: hellllloooooo!
+[12:23:09 PM] <dasliu-bot> Guest1: Ok, forget you.
+
+[12:23:20 PM] <kasey> dasliu-bot: hi
+[12:23:22 PM] <dasliu-bot> kasey: hello back at you!
+[12:23:42 PM] <dasliu-bot> kasey: screw you!
+
+[12:23:57 PM] <dasliu-bot> kasey: hi
+[12:24:02 PM] <kasey> dasliu-bot: hello
+[12:24:05 PM] <dasliu-bot> kasey: what's happening?
+[12:24:25 PM] <dasliu-bot> kasey: screw you!
+
+Phase III: BERT Self-Introduction Classification
+
+[12:24:53 PM] <kasey> dasliu-bot: classify Thank you very much, Mr. Cannella. Mr. Xavier, you obviously have a very strong woman who's visionary, geographics are working for you, you have a lot of things working on your side today. We will go to our vice chair, Ms. Fuller.
+[12:25:00 PM] <dasliu-bot> kasey: Prediction: non-self-intro (confidence=0.9959)
+
+[12:25:50 PM] <kasey> dasliu-bot: Jason Sisney, with the LAO. California actually was a leader among states in quantifying tax expenditures. We actually two reports per year from the franchise tax board, the tax agencies, as well as the Department of Finance that look at those. They are not displayed very prominently as you pointed out say in some of the key budget summary documents. We'll make sure that the members of the Committee have a link to those. We'll send them to your staffs and make sure you can access them. California has a significant amount of tax expenditures that have grown over time as the Legislative Analyst was mentioning. Among the largest is the mortgage interest deductions. So, some of them are very popular programs.
+[12:25:52 PM] <dasliu-bot> kasey: Prediction: self-intro (confidence=0.9958)
