@@ -27,8 +27,10 @@ How to interact
 Part I commands:
 - Commands:
   - dasliu-bot: usage
+  - dasliu-bot: who are you?
   - dasliu-bot: users
   - dasliu-bot: forget
+  - dasliu-bot: die
 
 Part II:
 - Outreach/greeting messages trigger the finite-state greeting flow.
