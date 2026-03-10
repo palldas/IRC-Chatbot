@@ -1,4 +1,5 @@
-CSC 482 
+CSC 482
+Pallavi Das and Kasey Liu
 Lab 5: IRC Chatbot 
 
 Files expected in this folder:
@@ -8,6 +9,7 @@ Files expected in this folder:
 Setup
 1) Install dependencies:
    pip3 install -r Packages.txt
+   (Note: The script will automatically download the spaCy 'en_core_web_trf' model on first run if it is not already installed.)
 
 Run
 1) From this directory:
@@ -30,17 +32,19 @@ Part I commands:
   - dasliu-bot: users
   - dasliu-bot: forget
   - dasliu-bot: die
+  - dasliu-bot: classify <text>
 
 Part II:
 - Outreach/greeting messages trigger the finite-state greeting flow.
 - dasliu-bot will send initial outreach after 15 seconds if no one outreaches to it
 - dasliu-bot gives up after 20 seconds with no reply
 
-Part III examples:
+Part III (Specific QA):
+Our implementation features a legislative self-introduction classifier built with BERT and spaCy.
 - Explicit classification command:
   dasliu-bot: classify Hi, my name is Kasey.
-- Or send non-greeting addressed text:
-  dasliu-bot: I am Kasey and I am a student.
+
+The bot will return a confidence score identifying whether the text is a self-introduction, the primary speaker's name, and any other names detected in the text.
 
 Model notes
 - bot.py loads model files from:
