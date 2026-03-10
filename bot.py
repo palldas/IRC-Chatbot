@@ -4,13 +4,24 @@ import time
 import sys
 import threading
 import random
+import json
+import os
 from pathlib import Path
+import re
+import spacy
 
-initial_outreach_phrases = ["hello", "hi"]
+try:
+    spacy.cli.download("en_core_web_trf")
+    nlp = spacy.load("en_core_web_trf")
+except OSError:
+    print("Warning: spaCy model 'en_core_web_trf' not found. Phrase 3 name extraction will fail until installed.")
+    nlp = None
+
+initial_outreach_phrases = ["hello", "hi", "hi!"]
 secondary_outreach_phrases = ["I said HI!", "excuse me, hello?", "hellllloooooo!"]
-outreach_reply_phrases = ["hello back at you!", "hi"]
-inquiry_phrases = ["how are you?", "what's happening?", "how is it going?", "how are you doing?"]
-inquiry_reply_phrases = ["I'm good", "I'm fine", "I'm fine, thanks for asking", "I'm great!", "Great!"]
+outreach_reply_phrases = ["hello back at you!", "hi", "hi back!"]
+inquiry_phrases = ["how are you?", "what's happening?", "how is it going?", "how are you doing?", "how are you"]
+inquiry_reply_phrases = ["I'm good", "I'm fine", "I'm fine, thanks for asking", "I'm great!", "Great!", "I am good", "ok"]
 inquiry_back_phrases = ["how about you?", "and yourself?", "how about yourself?"]
 giveup_phrases = ["Ok, forget you.", "Whatever.", "screw you!", "whatever, fine. Don't answer."]
 LABEL_MAP = {
@@ -18,6 +29,15 @@ LABEL_MAP = {
     1: "self-intro",
 }
 MAX_CHUNK_TOKENS = 510
+
+TITLES = re.compile(
+    r"\b(Mr|Mrs|Ms|Miss|Dr|Prof|Professor|Senator|Sen|"
+    r"Assemblymember|Assemblywoman|Assemblyman|"
+    r"Chairman|Chairwoman|Chair|Vice Chair|"
+    r"Representative|Rep|Councilmember|Judge|Officer|"
+    r"Director|Secretary|Commissioner|Madam|Sir)\.?\s*",
+    re.IGNORECASE
+)
 
 class ChatBot(irc.bot.SingleServerIRCBot):
     def __init__(self, channel, nickname, server, port=6667):
@@ -151,6 +171,51 @@ class ChatBot(irc.bot.SingleServerIRCBot):
         conf = max(conf for _, conf in chunk_preds) if chunk_preds else 0.0
         return LABEL_MAP[0], conf
 
+    def normalize_name(self, name):
+        name = TITLES.sub("", name).strip()
+        name = name.strip(".,;:")
+        return name
+
+    def extract_names_and_speaker(self, text):
+        names = set()
+        if nlp:
+            doc = nlp(text)
+            for ent in doc.ents:
+                if ent.label_ == "PERSON":
+                    n = self.normalize_name(ent.text)
+                    if n and len(n) > 1:
+                        names.add(n)
+        
+        speaker = None
+        lower_text = text.lower()
+        trigger_phrases = ["my name is ", "i'm ", "i am ", "this is "]
+        
+        for name in names:
+            name_lower = name.lower()
+            for trigger in trigger_phrases:
+                idx = lower_text.find(trigger)
+                if idx != -1:
+                    expected_pos = idx + len(trigger)
+                    name_pos = lower_text.find(name_lower, expected_pos)
+                    # if the name appears within 30 characters after the trigger phrase
+                    if name_pos != -1 and (name_pos - expected_pos) < 30:
+                        speaker = name
+                        break
+            if speaker:
+                break
+                
+        # if BERT flagged as self-intro, but triggers failed, guess the first name if available
+        if not speaker and names:
+            for pat in ["on behalf of", "representing", "here today"]:
+                if pat in lower_text:
+                    speaker = list(names)[0]
+                    break
+            
+            if not speaker and len(names) == 1:
+                speaker = list(names)[0]
+        
+        return speaker, names
+
     def handle_classifier_message(self, sender, text):
         label, conf = self.classify_text(text)
         if label is None:
@@ -160,7 +225,27 @@ class ChatBot(irc.bot.SingleServerIRCBot):
                 delay=1,
             )
             return
-        self.send_to_user(sender, f"Prediction: {label} (confidence={conf:.4f})", delay=1)
+            
+        speaker, all_names = self.extract_names_and_speaker(text)
+        
+        if speaker and speaker in all_names:
+            all_names.remove(speaker)
+            
+        names_str = ", ".join(all_names) if all_names else "none"
+        conf_pct = f"{conf * 100:.1f}%"
+
+        if label == "self-intro":
+            if speaker:
+                response = f"This is a self-introduction (confidence: {conf_pct})! I believe the speaker is {speaker}. Other names mentioned: {names_str}."
+            else:
+                response = f"This is a self-introduction (confidence: {conf_pct})! However, I could not identify the main speaker. The names involved are: {names_str}."
+        else:
+            if all_names:
+                response = f"I do not think this is a self-introduction (confidence: {conf_pct}). However, I did detect the following names: {names_str}."
+            else:
+                response = f"I do not think this is a self-introduction (confidence: {conf_pct}), and I did not detect any names."
+
+        self.send_to_user(sender, response, delay=1)
 
     def transition(self, new_state, partner=None):
         with self.lock:
@@ -329,14 +414,15 @@ class ChatBot(irc.bot.SingleServerIRCBot):
                 if self.initial_outreach_timer and self.initial_outreach_timer.is_alive():
                     self.initial_outreach_timer.cancel()
                 self.reset_conversation()
-                self.clear_saved_state()
                 self.schedule_initial_outreach()
             
         elif normalized in ["who are you?", "usage"]:
             msg1 = f"My name is {c.get_nickname()}. I was created by {self.creator_info}"
-            msg2 = 'Use "classify <text>" or address me with any message to run legislative self-intro BERT classifier.'
+            msg2 = 'Use "classify <text>" or address me with any message to run our legislative self-intro and name extraction classifier.'
+            msg3 = 'Kasey implemented the BERT self-intro classifier, and Pallavi implemented the spaCy Speaker Name Extraction.'
             self.send_delayed_msg(target, f"{sender}: {msg1}")
             self.send_delayed_msg(target, f"{sender}: {msg2}")
+            self.send_delayed_msg(target, f"{sender}: {msg3}")
 
         elif normalized == "users":
             channel_obj = self.channels.get(self.channel_name)
@@ -354,18 +440,8 @@ class ChatBot(irc.bot.SingleServerIRCBot):
                     f'{sender}: Usage: "{c.get_nickname()}: classify <text>"',
                 )
                 return
-            label, conf = self.classify_text(text)
-            if label is None:
-                self.send_delayed_msg(
-                    target,
-                    f"{sender}: Classifier unavailable. Expected model directory: {self.model_dir}",
-                )
-                return
-            self.send_delayed_msg(
-                target,
-                f"{sender}: Prediction: {label} (confidence={conf:.4f})",
-                delay=1,
-            )
+            
+            self.handle_classifier_message(sender, text)
 
 
 if __name__ == "__main__":
