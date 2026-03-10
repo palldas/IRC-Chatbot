@@ -1,0 +1,46 @@
+Phase I demo:
+[8:42:53 PM] <pallavi> dasliu-bot: usage
+[8:42:55 PM] <dasliu-bot> pallavi: My name is dasliu-bot. I was created by Pallavi Das and Kasey Liu, CSC 482
+[8:42:56 PM] <dasliu-bot> pallavi: Kasey implemented the BERT self-intro classifier, and Pallavi implemented the spaCy Speaker Name Extraction.
+[8:42:56 PM] <dasliu-bot> pallavi: Use "classify <text>" or address me with any message to run our legislative self-intro and name extraction classifier.
+
+[8:44:06 PM] <pallavi> dasliu-bot: users
+[8:44:08 PM] <dasliu-bot> pallavi: dasliu-bot, pallavi, Guest29, Cole91, Guest5, foaad_bot, Guest40
+
+[8:45:14 PM] <pallavi> dasliu-bot: who are you?
+[8:45:17 PM] <dasliu-bot> pallavi: Kasey implemented the BERT self-intro classifier, and Pallavi implemented the spaCy Speaker Name Extraction.
+[8:45:17 PM] <dasliu-bot> pallavi: Use "classify <text>" or address me with any message to run our legislative self-intro and name extraction classifier.
+[8:45:17 PM] <dasliu-bot> pallavi: My name is dasliu-bot. I was created by Pallavi Das and Kasey Liu, CSC 482
+
+Phase II demo:
+[8:38:57 PM] <pallavi> dasliu-bot: hi
+[8:38:59 PM] <dasliu-bot> pallavi: hello back at you!
+[8:39:05 PM] <pallavi> dasliu-bot: how're you?
+[8:39:08 PM] <dasliu-bot> pallavi: I'm great!
+[8:39:09 PM] <dasliu-bot> pallavi: how about you?
+[8:39:13 PM] <pallavi> dasliu-bot: meh
+
+[8:42:16 PM] <dasliu-bot> pallavi: hi!
+[8:42:26 PM] <pallavi> dasliu-bot: hello
+[8:42:28 PM] <dasliu-bot> pallavi: how are you
+[8:42:32 PM] <pallavi> dasliu-bot: i'm ok
+[8:42:36 PM] <pallavi> dasliu-bot: and you?
+[8:42:38 PM] <dasliu-bot> pallavi: I'm good
+
+[8:43:08 PM] <pallavi> dasliu-bot: hi
+[8:43:40 PM] <dasliu-bot> pallavi: hi back!
+[8:44:00 PM] <dasliu-bot> pallavi: screw you!
+
+Phase 3 demo:
+[8:46:14 PM] <pallavi> dasliu-bot: classify classify Thank you very much, Mr. Cannella. Mr. Xavier, you obviously have a very strong woman who's visionary, geographics are working for you, you have a lot of things working on your side today. We will go to our vice chair, Ms. Fuller.
+[8:46:17 PM] <dasliu-bot> pallavi: I do not think this is a self-introduction (confidence: 99.4%). However, I did detect the following names: Cannella, Fuller, Xavier.
+
+[8:46:48 PM] <pallavi> dasliu-bot:  classify Yvette Ale with Californians United For A Responsible Budget, a coalition of over 80 grassroots organizations in California. Support bail reform strongly oppose SB 10, because of the fiscal and social implications of this Bill.
+[8:46:49 PM] <dasliu-bot> pallavi: This is a self-introduction (confidence: 99.8%)! I believe the speaker is Yvette Ale. Other names mentioned: none.
+
+[8:40:01 PM] <pallavi> dasliu-bot: classify Walker Foley, Southern California Organizer with Food and Water Watch, and we support this bill as a necessary mitigation strategy for communities living in the shadows of refineries and oil and gas infrastructure, as well as everyone who is facing an era on a warmer planet, thank you.
+[8:40:05 PM] <dasliu-bot> pallavi: This is a self-introduction (confidence: 99.8%)! I believe the speaker is Walker Foley. Other names mentioned: none.
+
+[8:46:58 PM] <pallavi> dasliu-bot: die
+[8:47:01 PM] <dasliu-bot> pallavi: I shall!
+[8:47:02 PM] ← dasliu-bot has left (Quit: Quit: chat-bot)
