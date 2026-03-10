@@ -1,3 +1,4 @@
 irc
 torch
 transformers
+spacy
