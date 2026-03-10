@@ -447,7 +447,7 @@ class ChatBot(irc.bot.SingleServerIRCBot):
 if __name__ == "__main__":
     SERVER = "irc.libera.chat"
     PORT = 6667
-    CHANNEL = "#CSC481"
+    CHANNEL = "#CSC482"
     BOTNICK = "dasliu-bot"
     
     print(f"Starting {BOTNICK} on {SERVER}:{PORT} in {CHANNEL}...")
